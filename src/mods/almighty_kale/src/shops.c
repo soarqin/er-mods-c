@@ -13,6 +13,7 @@
 
 #include <er_param/er_param_api.h>
 #include <er_param/param.h>
+#include <steam/api.h>
 #include <er_param/defs/equip_param_weapon.h>
 #include <er_param/defs/equip_param_protector.h>
 #include <er_param/defs/equip_param_goods.h>
@@ -125,6 +126,57 @@ static const size_t ak_cut_content_weapons_count = sizeof(ak_cut_content_weapons
 
 static const long long ak_cut_content_accessories[] = { 3100, 6120, 6121 };
 static const size_t ak_cut_content_accessories_count = sizeof(ak_cut_content_accessories) / sizeof(ak_cut_content_accessories[0]);
+
+/* Steam app IDs used to detect installed DLC. */
+static const uint32_t AK_APP_ID_SHADOW_OF_THE_ERDTREE = 2778580;
+static const uint32_t AK_APP_ID_TARNISHED_PACK = 3655690;
+
+/*
+ * Items belonging to the "Tarnished Pack" DLC. Their names are present in the
+ * base-game msgbnd files, so without a special case they would be sorted into
+ * the base-game shops: put them into the DLC shop when the pack is installed,
+ * and skip them entirely otherwise.
+ */
+static const long long ak_tarnished_pack_goods[] = {
+    2009600, // Spectral Steed Regalia: Tree Sentinel
+    2009610, // Spectral Steed Regalia: Carian Silver
+    2009620, // Spectral Steed Regalia: Funereal Night
+};
+static const size_t ak_tarnished_pack_goods_count = sizeof(ak_tarnished_pack_goods) / sizeof(ak_tarnished_pack_goods[0]);
+
+static const long long ak_tarnished_pack_protectors[] = {
+    5340000, // Broken Gold Mask
+    5340100, // Gold Tattoo (Chest)
+    5340200, // Gold Tattoo (Arm)
+    5340300, // Gold Tattoo (Leg)
+    5350000, // Silver Grooved Helm
+    5350100, // Silver Grooved Armor
+    5350200, // Silver Grooved Gauntlets
+    5350300, // Silver Grooved Greaves
+    5351100, // Silver Grooved Armor (Altered)
+    5360000, // Leontiel's Hat
+    5360100, // Leontiel's Armor
+    5360200, // Leontiel's Leather Gloves
+    5360300, // Leontiel's Boots
+    5361000, // Leontiel's Hat (Altered)
+    5370000, // Steel Helm
+    5370100, // Steel Armor
+    5370200, // Steel Gauntlets
+    5370300, // Steel Greaves
+};
+static const size_t ak_tarnished_pack_protectors_count = sizeof(ak_tarnished_pack_protectors) / sizeof(ak_tarnished_pack_protectors[0]);
+
+static const long long ak_tarnished_pack_weapons[] = {
+    3560000,  // Leontiel's Greatsword
+    8530000,  // Hefty Scimitar
+    13510000, // Golden Order Flail
+    31540000, // Silver Grooved Shield
+    62520000, // Ritual Thrusting Shield
+    64530000, // Reverse-Bladed Sword
+    66530000, // Reed Great Katana
+    67530000, // Idus Sword
+};
+static const size_t ak_tarnished_pack_weapons_count = sizeof(ak_tarnished_pack_weapons) / sizeof(ak_tarnished_pack_weapons[0]);
 
 static ak_shop_t ak_mod_shops[AK_SHOP_COUNT] = {
     {AK_SHOP_weapons, NULL, 0, 0},
@@ -288,6 +340,19 @@ static void ak_wait_for_bnd_ready(void) {
 
 void ak_setup_shops(void) {
     ak_wait_for_bnd_ready();
+
+    /* Detect installed DLC via Steam (ISteamApps::BIsDlcInstalled). When
+     * detection is unavailable, fall back to treating the DLC as installed,
+     * which degrades to the name-lookup-only behavior: DLC items are then
+     * still skipped when their DLC msgbnd names fail to resolve. */
+    steamapi_init();
+    isteam_apps *apps = steam_apps();
+    bool sote_installed = isteam_apps_check_dlc_installed(apps, AK_APP_ID_SHADOW_OF_THE_ERDTREE) != 0;
+    bool tarnished_pack_installed = isteam_apps_check_dlc_installed(apps, AK_APP_ID_TARNISHED_PACK) != 0;
+    AK_LOG("ak_setup_shops: Shadow of the Erdtree %s, Tarnished Pack %s",
+           sote_installed ? "installed" : "not installed",
+           tarnished_pack_installed ? "installed" : "not installed");
+
     ak_max_level_by_reinforce_type_id = kh_init(ak_int_int);
     ak_no_repository_item_ids = kh_init(ak_int_set);
     ak_goods_flags = kh_init(ak_int_int);
@@ -383,9 +448,16 @@ void ak_setup_shops(void) {
 
                 bool is_dlc = false;
                 const wchar_t *weapon_name = ak_get_message(ER_MSGBND_weapon_name, (int)id);
-                if (weapon_name == NULL || weapon_name[0] == 0) {
+                if ((weapon_name == NULL || weapon_name[0] == 0) && sote_installed) {
                     is_dlc = true;
                     weapon_name = ak_get_message(ER_MSGBND_dlc_weapon_name, (int)id);
+                }
+                if (ak_ll_contains(ak_tarnished_pack_weapons, ak_tarnished_pack_weapons_count, (long long)id)) {
+                    if (tarnished_pack_installed) {
+                        is_dlc = true;
+                    } else {
+                        continue;
+                    }
                 }
                 if (weapon_name == NULL || weapon_name[0] == 0 || ak_wstr_starts_with(weapon_name, ak_cut_content_prefix)) {
                     continue;
@@ -439,9 +511,16 @@ void ak_setup_shops(void) {
 
                 bool is_dlc = false;
                 const wchar_t *protector_name = ak_get_message(ER_MSGBND_protector_name, (int)id);
-                if (protector_name == NULL || protector_name[0] == 0) {
+                if ((protector_name == NULL || protector_name[0] == 0) && sote_installed) {
                     is_dlc = true;
                     protector_name = ak_get_message(ER_MSGBND_dlc_protector_name, (int)id);
+                }
+                if (ak_ll_contains(ak_tarnished_pack_protectors, ak_tarnished_pack_protectors_count, (long long)id)) {
+                    if (tarnished_pack_installed) {
+                        is_dlc = true;
+                    } else {
+                        continue;
+                    }
                 }
                 if (protector_name == NULL || protector_name[0] == 0 || ak_wstr_eq(protector_name, ak_cut_content_prefix)) {
                     continue;
@@ -484,7 +563,7 @@ void ak_setup_shops(void) {
                 uint64_t id = ak_id;
                 bool is_dlc = false;
                 const wchar_t *accessory_name = ak_get_message(ER_MSGBND_accessory_name, (int)id);
-                if (accessory_name == NULL || accessory_name[0] == 0) {
+                if ((accessory_name == NULL || accessory_name[0] == 0) && sote_installed) {
                     is_dlc = true;
                     accessory_name = ak_get_message(ER_MSGBND_dlc_accessory_name, (int)id);
                 }
@@ -531,9 +610,16 @@ void ak_setup_shops(void) {
 
                 bool is_dlc = false;
                 const wchar_t *goods_name = ak_get_message(ER_MSGBND_goods_name, (int)id);
-                if (goods_name == NULL || goods_name[0] == 0) {
+                if ((goods_name == NULL || goods_name[0] == 0) && sote_installed) {
                     is_dlc = true;
                     goods_name = ak_get_message(ER_MSGBND_dlc_goods_name, (int)id);
+                }
+                if (ak_ll_contains(ak_tarnished_pack_goods, ak_tarnished_pack_goods_count, (long long)id)) {
+                    if (tarnished_pack_installed) {
+                        is_dlc = true;
+                    } else {
+                        continue;
+                    }
                 }
                 if (goods_name == NULL || goods_name[0] == 0 || ak_wstr_eq(goods_name, ak_cut_content_prefix)) {
                     continue;
@@ -634,7 +720,7 @@ void ak_setup_shops(void) {
                 uint64_t id = ak_id;
                 bool is_dlc = false;
                 const wchar_t *gem_name = ak_get_message(ER_MSGBND_gem_name, (int)id);
-                if (gem_name == NULL || gem_name[0] == 0) {
+                if ((gem_name == NULL || gem_name[0] == 0) && sote_installed) {
                     is_dlc = true;
                     gem_name = ak_get_message(ER_MSGBND_dlc_gem_name, (int)id);
                 }

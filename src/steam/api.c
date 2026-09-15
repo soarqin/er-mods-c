@@ -14,6 +14,7 @@
 static HMODULE steam_api_module = NULL;
 static FARPROC steam_userstats_func = NULL;
 static FARPROC steam_apps_func = NULL;
+static FARPROC steam_apps_dlc_installed_func = NULL;
 
 void steamapi_init() {
     steam_api_module = LoadLibraryW(L"steam_api64.dll");
@@ -33,11 +34,15 @@ void steamapi_init() {
     if (steam_apps_func == NULL) {
         steam_apps_func = GetProcAddress(steam_api_module, "SteamAPI_SteamApps_v007");
     }
+    /* Flat C export of ISteamApps::BIsDlcInstalled. Prefer it over the
+     * vtable: the export name is stable across steam_api64.dll versions. */
+    steam_apps_dlc_installed_func = GetProcAddress(steam_api_module, "SteamAPI_ISteamApps_BIsDlcInstalled");
 }
 
 void steamapi_uninit() {
     steam_userstats_func = NULL;
     steam_apps_func = NULL;
+    steam_apps_dlc_installed_func = NULL;
     if (steam_api_module != NULL) {
         FreeLibrary(steam_api_module);
         steam_api_module = NULL;
@@ -73,4 +78,13 @@ const char *isteam_apps_get_current_game_language(isteam_apps *apps) {
     /* vtable index 4 = GetCurrentGameLanguage (verified against the game's
      * steam_api64.dll ISteamApps vtable layout). */
     return ((const char *(*__cdecl)(isteam_apps *))vtable[4])(apps);
+}
+
+int isteam_apps_check_dlc_installed(isteam_apps *apps, uint32_t app_id) {
+    if (apps == NULL || steam_apps_dlc_installed_func == NULL) {
+        return -1;
+    }
+    /* C++ bool is returned in AL on x64; read it as 8-bit so undefined upper
+     * bits of the return register are ignored. */
+    return ((uint8_t(*__cdecl)(isteam_apps *, uint32_t))steam_apps_dlc_installed_func)(apps, app_id) ? 1 : 0;
 }

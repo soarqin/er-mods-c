@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <stdbool.h>
 
 #ifdef __cplusplus
@@ -28,6 +29,12 @@ extern bool isteam_userstats_reset_all_stats(isteam_userstats *steam_userstats, 
  * unavailable. vtable index 4 = GetCurrentGameLanguage. */
 extern isteam_apps *steam_apps();
 extern const char *isteam_apps_get_current_game_language(isteam_apps *apps);
+
+/* ISteamApps::BIsDlcInstalled, resolved via the game's flat C export
+ * (SteamAPI_ISteamApps_BIsDlcInstalled). Returns 1 when the given DLC app is
+ * owned and installed, 0 when it is not, and -1 when the Steam API or the
+ * export is unavailable (callers may fall back to their own heuristics). */
+extern int isteam_apps_check_dlc_installed(isteam_apps *apps, uint32_t app_id);
 
 #ifdef __cplusplus
 }

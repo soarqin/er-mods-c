@@ -16,6 +16,8 @@ Mods with configurable options read their `<mod_name>.ini` from the same directo
 
 Makes Merchant Kalé glorious: talk to Kalé to freely buy and sell almost every item in the game — weapons, armor, talismans, sorceries, incantations, ashes of war, and goods. This is a 1:1 C port of the [Glorious Merchant](https://github.com/ThomasJClark/elden-ring-glorious-merchant) mod.
 
+Items from *Shadow of the Erdtree* and the *Tarnished Pack* are sorted into the DLC shops, and are only offered when the corresponding DLC is installed (detected via Steam).
+
 Options (`almighty_kale.ini`):
 
 | Option | Default | Description |
@@ -81,6 +83,25 @@ Removes the extra input delay before confirm inputs register in conversation men
 ### reset_achievements_on_new_game
 
 Automatically resets all Steam achievements and stats when you start a new game, so achievements can be earned again from scratch on a fresh playthrough.
+
+## Loading with Mod Engine 3
+
+The DLLs can also be loaded with [Mod Engine 3](https://github.com/soulsmods/ModEngine3). Create a `.me3` profile next to the DLLs, listing every mod you want to load:
+
+```toml
+profileVersion = 'v1'
+
+[[supports]]
+game = 'elden-ring'
+
+[[natives]]
+path = 'almighty_kale.dll'
+
+[[natives]]
+path = 'er_param.dll'
+```
+
+Then launch the game through the ME3 launcher with that profile.
 
 ## Building
 
