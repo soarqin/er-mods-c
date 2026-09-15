@@ -1,7 +1,8 @@
-# er-mods-c (YAERModLoader)
+# er-mods-c
 
 A collection of quality-of-life mods for the PC (Steam) version of *ELDEN RING*, written in C.
-Targets game patch 1.12 or later, including *Shadow of the Erdtree*.
+For `er_param` and its dependants: target game patch 1.12 or later, including *Shadow of the Erdtree*.
+For other mods: support all game patches.
 
 Each mod is built as a standalone DLL. Load the DLLs into the game with your preferred DLL loader/injector.
 
