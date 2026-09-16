@@ -77,10 +77,15 @@ void ak_setup_messages(void) {
         return;
     }
     /* Spin-wait for the game to initialize the MsgRepositoryImp instance. */
-    for (;;) {
+    const int max_retries = 600;
+    for (int retry = 0; retry < max_retries; retry++) {
         ak_msg_repository = ak_param_api->get_msg_repository();
         if (ak_msg_repository != NULL) break;
         Sleep(100);
+    }
+    if (ak_msg_repository == NULL) {
+        AK_MSG_LOG("ak_setup_messages: timed out waiting for MsgRepositoryImp");
+        return;
     }
     do_hook(lookup_entry, (void *)ak_lookup_entry_detour, (void **)&ak_lookup_entry_original);
     AK_MSG_LOG("ak_setup_messages: hook installed, original=%p", (void*)ak_lookup_entry_original);
@@ -92,7 +97,8 @@ void ak_unhook_messages(void) {
         return;
     }
     do_unhook(lookup_entry);
-    lookup_entry = NULL;
+    ak_lookup_entry_original = NULL;
+    ak_msg_repository = NULL;
 }
 
 const wchar_t *ak_get_message(er_msgbnd_t bnd_id, int msg_id) {

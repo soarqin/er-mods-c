@@ -33,19 +33,17 @@ static ssize_t max(ssize_t a, ssize_t b) { return a > b ? a : b; }
 // bad character heuristic
 void bad_data_heuristic(const uint8_t *data, const uint8_t *mask, size_t size,
                         ssize_t baddata[BM_DATA_MAX_LEN]) {
-    ssize_t i;
-
     // Initialize all occurrences as -1
-    for (i = BM_DATA_MAX_LEN - 1; i >= 0; i--)
+    for (size_t i = 0; i < BM_DATA_MAX_LEN; i++)
         baddata[i] = -1;
 
     // Fill the actual value of last occurrence
     // of a character
     if (mask == NULL) {
-        for (i = 0; i < size; i++)
+        for (size_t i = 0; i < size; i++)
             baddata[data[i]] = i;
     } else {
-        for (i = 0; i < size; i++)
+        for (size_t i = 0; i < size; i++)
             if (mask[i] == 0xFF)
                 baddata[data[i]] = i;
             else {
@@ -59,6 +57,7 @@ void bad_data_heuristic(const uint8_t *data, const uint8_t *mask, size_t size,
 /* A pattern searching function that uses Bad
    Character Heuristic of Boyer Moore Algorithm */
 uint8_t *sig_scan_without_mask(void *base, size_t data_size, const uint8_t *pat, size_t pat_size) {
+    if (base == NULL || pat == NULL || pat_size == 0 || pat_size > data_size) return NULL;
     ssize_t badchar[BM_DATA_MAX_LEN];
     uint8_t *data = base;
 
@@ -67,7 +66,7 @@ uint8_t *sig_scan_without_mask(void *base, size_t data_size, const uint8_t *pat,
        for given pattern */
     bad_data_heuristic(pat, NULL, pat_size, badchar);
 
-    ssize_t s = 0; // s is shift of the pattern with
+    size_t s = 0; // s is shift of the pattern with
     // respect to text
     while (s <= data_size - pat_size) {
         ssize_t j = (ssize_t)pat_size - 1;
@@ -78,8 +77,6 @@ uint8_t *sig_scan_without_mask(void *base, size_t data_size, const uint8_t *pat,
         while (j >= 0 && pat[j] == data[s + j]) {
             j--;
         }
-    next:
-
         /* If the pattern is present at current
            shift, then index j will become -1 after
            the above loop */
@@ -103,12 +100,13 @@ uint8_t *sig_scan_without_mask(void *base, size_t data_size, const uint8_t *pat,
            occurrence  of bad character in pattern
            is on the right side of the current
            character. */
-            s += max(1, j - badchar[data[s + j]]);
+            s += (size_t)max(1, j - badchar[data[s + j]]);
     }
     return NULL;
 }
 
 uint8_t *sig_scan_with_mask(void *base, size_t data_size, const uint8_t *pat, const uint8_t *mask, size_t pat_size) {
+    if (base == NULL || pat == NULL || mask == NULL || pat_size == 0 || pat_size > data_size) return NULL;
     ssize_t badchar[BM_DATA_MAX_LEN];
     uint8_t *data = base;
 
@@ -117,7 +115,7 @@ uint8_t *sig_scan_with_mask(void *base, size_t data_size, const uint8_t *pat, co
        for given pattern */
     bad_data_heuristic(pat, mask, pat_size, badchar);
 
-    ssize_t s = 0; // s is shift of the pattern with
+    size_t s = 0; // s is shift of the pattern with
     // respect to text
     while (s <= data_size - pat_size) {
         ssize_t j = (ssize_t)pat_size - 1;
@@ -141,7 +139,6 @@ uint8_t *sig_scan_with_mask(void *base, size_t data_size, const uint8_t *pat, co
             j--;
         }
     next:
-
         /* If the pattern is present at current
            shift, then index j will become -1 after
            the above loop */
@@ -165,7 +162,7 @@ uint8_t *sig_scan_with_mask(void *base, size_t data_size, const uint8_t *pat, co
            occurrence  of bad character in pattern
            is on the right side of the current
            character. */
-            s += max(1, j - badchar[data[s + j]]);
+            s += (size_t)max(1, j - badchar[data[s + j]]);
     }
     return NULL;
 }
@@ -219,10 +216,13 @@ size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, ui
         -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     };
+    if (pattern == NULL || out_pattern == NULL || out_mask == NULL || out_size == 0) return (size_t)-2;
     size_t pattern_size = 0;
     bool second_char = false;
     while (*pattern) {
-        switch (char_table[(unsigned char)*pattern]) {
+        const unsigned char ch = (unsigned char)*pattern;
+        if (ch >= sizeof(char_table)) return (size_t)-2;
+        switch (char_table[ch]) {
             case -1:
                 return (size_t)-2;
             case -2:
@@ -255,7 +255,7 @@ size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, ui
                     out_mask[pattern_size] <<= 4;
                     out_pattern[pattern_size] <<= 4;
                     out_mask[pattern_size] |= 0xF;
-                    out_pattern[pattern_size] |= (uint8_t)char_table[*pattern];
+                    out_pattern[pattern_size] |= (uint8_t)char_table[ch];
                     pattern_size++;
                     second_char = false;
                 } else {
@@ -263,7 +263,7 @@ size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, ui
                         return (size_t)-1;
                     }
                     out_mask[pattern_size] = 0xF;
-                    out_pattern[pattern_size] = (uint8_t)char_table[*pattern];
+                    out_pattern[pattern_size] = (uint8_t)char_table[ch];
                     second_char = true;
                 }
                 pattern++;
@@ -279,6 +279,7 @@ size_t sig_build_pattern_with_mask(const char *pattern, uint8_t *out_pattern, ui
 }
 
 uint8_t *sig_scan(void *base, size_t size, const char *pattern) {
+    if (base == NULL || pattern == NULL || pattern[0] == 0) return NULL;
     size_t out_size = 64;
     uint8_t *out_pattern;
     uint8_t *out_mask;
@@ -286,6 +287,11 @@ uint8_t *sig_scan(void *base, size_t size, const char *pattern) {
     for (;;) {
         out_pattern = LocalAlloc(0, out_size);
         out_mask = LocalAlloc(0, out_size);
+        if (out_pattern == NULL || out_mask == NULL) {
+            LocalFree(out_pattern);
+            LocalFree(out_mask);
+            return NULL;
+        }
         pattern_size = sig_build_pattern_with_mask(pattern, out_pattern, out_mask, out_size);
         if (pattern_size == (size_t)-2) {
             LocalFree(out_pattern);

@@ -20,14 +20,15 @@ exec_action_button_param_proxy_hook:
     push r8
     push r9
     sub rsp, 58h
-    movaps [rsp+10h], xmm0
-    movaps [rsp+20h], xmm1
-    movaps [rsp+30h], xmm2
+    ; Keep the 32-byte home area at [rsp..rsp+1fh] available to the call.
+    movaps [rsp+20h], xmm0
+    movaps [rsp+30h], xmm1
+    movaps [rsp+40h], xmm2
 
     call check_exec_action_button_param_filters
-    movaps xmm0, [rsp-10h]
-    movaps xmm1, [rsp-20h]
-    movaps xmm2, [rsp-30h]
+    movaps xmm0, [rsp+20h]
+    movaps xmm1, [rsp+30h]
+    movaps xmm2, [rsp+40h]
     add rsp, 58h
     pop r9
     pop r8

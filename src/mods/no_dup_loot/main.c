@@ -93,7 +93,6 @@ static void update_item_count(uint8_t *addr, int32_t count, int32_t max_count) {
 }
 
 static void update_if_needed() {
-    HANDLE process = GetCurrentProcess();
     uint8_t *addr = (uint8_t*)*(uintptr_t*)game_data_man;
     if (addr) {
         uint8_t *player_addr = (uint8_t*)*(uintptr_t*)(addr + 8);
@@ -103,8 +102,8 @@ static void update_if_needed() {
             uint8_t *inventory_addr = (uint8_t*)*(uintptr_t*)(player_addr + 0x5D0);
             if (inventory_addr) {
                 uint32_t count = *(uint32_t*)(inventory_addr + 0x18);
-                if (count != inventory_item_count) {
-                    inventory_item_count = count;
+                if (count != (uint32_t)inventory_item_count) {
+                    inventory_item_count = (int)count;
                     need_update = true;
                 }
             }
@@ -112,20 +111,24 @@ static void update_if_needed() {
             uint8_t *chest_addr = (uint8_t*)*(uintptr_t*)(player_addr + 0x8D0);
             if (chest_addr) {
                 uint32_t count = *(uint32_t*)(chest_addr + 0x18);
-                if (count != chest_item_count) {
-                    chest_item_count = count;
+                if (count != (uint32_t)chest_item_count) {
+                    chest_item_count = (int)count;
                     need_update = true;
                 }
             }
             if (need_update) {
                 clear_item_count();
-                uint8_t *item_addr = (uint8_t*)*(uintptr_t*)(inventory_addr + 0x10);
-                if (item_addr) {
-                    update_item_count(item_addr, inventory_item_count, 2688);
+                if (inventory_addr) {
+                    uint8_t *item_addr = (uint8_t*)*(uintptr_t*)(inventory_addr + 0x10);
+                    if (item_addr) {
+                        update_item_count(item_addr, inventory_item_count, 2688);
+                    }
                 }
-                item_addr = (uint8_t*)*(uintptr_t*)(chest_addr + 0x10);
-                if (item_addr) {
-                    update_item_count(item_addr, chest_item_count, 1920);
+                if (chest_addr) {
+                    uint8_t *item_addr = (uint8_t*)*(uintptr_t*)(chest_addr + 0x10);
+                    if (item_addr) {
+                        update_item_count(item_addr, chest_item_count, 1920);
+                    }
                 }
             }
         }
@@ -239,6 +242,8 @@ static void uninit(void) {
 }
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
+    (void)module;
+    (void)reserved;
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(module);

@@ -57,9 +57,11 @@ static void ak_on_param_loaded(void *userp) {
 }
 
 static void uninit(void) {
-    ak_unhook_talkscript();
-    ak_unhook_shop_hooks();
-    ak_unhook_messages();
+    if (ak_param_api != NULL) {
+        ak_unhook_talkscript();
+        ak_unhook_shop_hooks();
+        ak_unhook_messages();
+    }
     ak_free_shop_data();
     MH_Uninitialize();
 }

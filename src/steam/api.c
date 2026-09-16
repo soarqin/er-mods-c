@@ -17,16 +17,12 @@ static FARPROC steam_apps_func = NULL;
 static FARPROC steam_apps_dlc_installed_func = NULL;
 
 void steamapi_init() {
+    if (steam_api_module != NULL) return;
     steam_api_module = LoadLibraryW(L"steam_api64.dll");
     if (steam_api_module == NULL) {
         return;
     }
     steam_userstats_func = GetProcAddress(steam_api_module, "SteamAPI_SteamUserStats_v012");
-    if (steam_userstats_func == NULL) {
-        FreeLibrary(steam_api_module);
-        steam_api_module = NULL;
-        return;
-    }
     /* ISteamApps accessor export. Try v008 first (current), fall back to v007.
      * If neither is present the language accessor returns NULL and callers
      * fall back to English. */
@@ -37,6 +33,10 @@ void steamapi_init() {
     /* Flat C export of ISteamApps::BIsDlcInstalled. Prefer it over the
      * vtable: the export name is stable across steam_api64.dll versions. */
     steam_apps_dlc_installed_func = GetProcAddress(steam_api_module, "SteamAPI_ISteamApps_BIsDlcInstalled");
+    if (steam_userstats_func == NULL && steam_apps_func == NULL) {
+        FreeLibrary(steam_api_module);
+        steam_api_module = NULL;
+    }
 }
 
 void steamapi_uninit() {
@@ -50,24 +50,27 @@ void steamapi_uninit() {
 }
 
 isteam_userstats *steam_userstats() {
-    return ((void*(*__cdecl)())steam_userstats_func)();
+    if (steam_userstats_func == NULL) return NULL;
+    return ((void *(*)())steam_userstats_func)();
 }
 
 bool isteam_userstats_store_stats(isteam_userstats *steam_userstats) {
+    if (steam_userstats == NULL) return false;
     void **vtable = *(void***)steam_userstats;
-    return ((bool(*__cdecl)(isteam_userstats*))vtable[10])(steam_userstats);
+    return ((bool (*)(isteam_userstats *))vtable[10])(steam_userstats);
 }
 
 bool isteam_userstats_reset_all_stats(isteam_userstats *steam_userstats, bool achievements_too) {
+    if (steam_userstats == NULL) return false;
     void **vtable = *(void***)steam_userstats;
-    return ((bool(*__cdecl)(isteam_userstats*, bool))vtable[21])(steam_userstats, achievements_too);
+    return ((bool (*)(isteam_userstats *, bool))vtable[21])(steam_userstats, achievements_too);
 }
 
 isteam_apps *steam_apps() {
     if (steam_apps_func == NULL) {
         return NULL;
     }
-    return ((void*(*__cdecl)())steam_apps_func)();
+    return ((void *(*)())steam_apps_func)();
 }
 
 const char *isteam_apps_get_current_game_language(isteam_apps *apps) {
@@ -77,7 +80,7 @@ const char *isteam_apps_get_current_game_language(isteam_apps *apps) {
     void **vtable = *(void***)apps;
     /* vtable index 4 = GetCurrentGameLanguage (verified against the game's
      * steam_api64.dll ISteamApps vtable layout). */
-    return ((const char *(*__cdecl)(isteam_apps *))vtable[4])(apps);
+    return ((const char *(*)(isteam_apps *))vtable[4])(apps);
 }
 
 int isteam_apps_check_dlc_installed(isteam_apps *apps, uint32_t app_id) {
@@ -86,5 +89,5 @@ int isteam_apps_check_dlc_installed(isteam_apps *apps, uint32_t app_id) {
     }
     /* C++ bool is returned in AL on x64; read it as 8-bit so undefined upper
      * bits of the return register are ignored. */
-    return ((uint8_t(*__cdecl)(isteam_apps *, uint32_t))steam_apps_dlc_installed_func)(apps, app_id) ? 1 : 0;
+    return ((uint8_t (*)(isteam_apps *, uint32_t))steam_apps_dlc_installed_func)(apps, app_id) ? 1 : 0;
 }

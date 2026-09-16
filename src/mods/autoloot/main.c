@@ -12,11 +12,14 @@ uintptr_t execute_action_button_param_proxy_return = 0;
 extern int exec_action_button_param_proxy_hook();
 
 static void do_hook(void *target, void *detour, void **original) {
-    MH_CreateHook(target, detour, original);
-    MH_EnableHook(target);
+    if (target == NULL || detour == NULL || original == NULL) return;
+    if (MH_CreateHook(target, detour, original) == MH_OK) {
+        MH_EnableHook(target);
+    }
 }
 
 static void do_unhook(void *target) {
+    if (target == NULL) return;
     MH_DisableHook(target);
     MH_RemoveHook(target);
 }
@@ -37,11 +40,14 @@ static void init(void) {
 
 
 static void uninit(void) {
-    do_unhook(exec_action_button_param_proxy);
+    if (exec_action_button_param_proxy != NULL) {
+        do_unhook(exec_action_button_param_proxy);
+    }
     MH_Uninitialize();
 }
 
 extern int check_exec_action_button_param_filters(uintptr_t action_button_region_system_imp, int entry_id) {
+    (void)action_button_region_system_imp;
     static const int filters[] = {
         /* Lost runes */
         1000,
@@ -77,6 +83,8 @@ extern int check_exec_action_button_param_filters(uintptr_t action_button_region
 }
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
+    (void)module;
+    (void)reserved;
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(module);

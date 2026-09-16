@@ -51,10 +51,16 @@ typedef struct {
 
 static khash_t(wstr) *param_types = NULL;
 
+static void clear_param_types(void) {
+    if (param_types == NULL) return;
+    for (khiter_t k = kh_begin(param_types); k != kh_end(param_types); ++k) {
+        if (kh_exist(param_types, k)) LocalFree(kh_value(param_types, k));
+    }
+    kh_clear(wstr, param_types);
+}
+
 bool er_param_load_table() {
-    /* preserve uthash HASH_CLEAR semantics: clears table without freeing user entries;
-       entries' lifetime is managed elsewhere (or pre-existing leak — out of scope) */
-    if (param_types) kh_clear(wstr, param_types); else param_types = kh_init(wstr);
+    if (param_types) clear_param_types(); else param_types = kh_init(wstr);
     if (!er_pointers.cs_regulation_manager) {
         return false;
     }
@@ -71,21 +77,32 @@ bool er_param_load_table() {
     /*fwprintf(stderr, L"%p %p %zd\n", reg_man->start, reg_man->end, reg_man->end - reg_man->start);*/
     for (er_param_t **current = reg_man->start; current < reg_man->end; current++) {
         const er_param_t *param = *current;
+        if (param == NULL || param->path == NULL || param->path->data == NULL) continue;
         er_param_type_t *pt = (er_param_type_t*)LocalAlloc(0, sizeof(er_param_type_t));
+        if (pt == NULL) return false;
         pt->name = er_wstring_impl_str(&param->name);
+        if (pt->name == NULL) {
+            LocalFree(pt);
+            continue;
+        }
         pt->param = param->path->data;
         /*fwprintf(stderr, L"%p %ls\n", param, pt->name);*/
         int ret;
         khiter_t k = kh_put(wstr, param_types, pt->name, &ret);
+        if (ret < 0) {
+            LocalFree(pt);
+            return false;
+        }
+        if (ret == 0) {
+            LocalFree(kh_value(param_types, k));
+        }
         kh_value(param_types, k) = pt;
     }
     return true;
 }
 
 void er_param_unload() {
-    /* preserve uthash HASH_CLEAR semantics: clears table without freeing user entries;
-       entries' lifetime is managed elsewhere (or pre-existing leak — out of scope) */
-    if (param_types) kh_clear(wstr, param_types); else param_types = kh_init(wstr);
+    if (param_types) clear_param_types(); else param_types = kh_init(wstr);
 }
 
 const er_param_table_t *er_param_find_table(const wchar_t *name) {

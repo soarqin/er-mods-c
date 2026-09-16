@@ -74,6 +74,7 @@ uint32_t er_pointers_init(uint32_t init) {
     uint32_t res = 0;
     size_t image_size;
     void *image_base = get_module_image_base(NULL, &image_size);
+    if (image_base == NULL) return 0;
     er_init_indirect_pointer(INIT_CS_REGULATION_MANAGER, cs_regulation_manager, "48 8B 0D ?? ?? ?? ?? 48 85 C9 74 0B 4C 8B C0 48 8B D7", 3);
     er_init_indirect_pointer(INIT_SOLO_PARAM_REPOSITORY, solo_param_repository, "48 8B 0D ?? ?? ?? ?? 48 85 C9 0F 84 ?? ?? ?? ?? 45 33 C0 BA 8D 00 00 00 E8", 3);
     er_init_indirect_pointer(INIT_MSG_REPOSITORY, msg_repository, "48 8B 3D ?? ?? ?? ?? 44 0F B6 30 48 85 FF 75", 3);

@@ -50,6 +50,7 @@ DWORD WINAPI reset_achievements_on_new_game_thread(LPVOID arg) {
 }
 
 static void init(void) {
+    steamapi_init();
     game_running = true;
     reset_achievements_on_new_game_thread_handle = CreateThread(NULL, 0, reset_achievements_on_new_game_thread, NULL, 0, NULL);
 }
@@ -62,9 +63,12 @@ static void uninit(void) {
         CloseHandle(reset_achievements_on_new_game_thread_handle);
         reset_achievements_on_new_game_thread_handle = NULL;
     }
+    steamapi_uninit();
 }
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
+    (void)module;
+    (void)reserved;
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(module);

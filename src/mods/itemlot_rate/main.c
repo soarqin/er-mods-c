@@ -38,7 +38,9 @@ typedef struct config_s {
 static config_t config;
 
 static int compare_int(const void* a, const void* b) {
-    return *(int*)a - *(int*)b;
+    const int lhs = *(const int *)a;
+    const int rhs = *(const int *)b;
+    return (lhs > rhs) - (lhs < rhs);
 }
 
 static int my_ini_handler(void* user, const char* section, const char* name, const char* value) {
@@ -241,6 +243,8 @@ static void uninit(void) {
 }
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD ul_reason_for_call, LPVOID reserved) {
+    (void)module;
+    (void)reserved;
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(module);

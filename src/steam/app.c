@@ -15,18 +15,24 @@
 #include <stdio.h>
 
 bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
+    if (path == NULL) return false;
+    path[0] = L'\0';
     HKEY key;
     wchar_t steam_path[MAX_PATH];
     wchar_t library_path[MAX_PATH];
     DWORD valtype = REG_SZ;
-    DWORD cbdata = MAX_PATH * sizeof(wchar_t);
+    DWORD cbdata = sizeof(steam_path);
     if (RegOpenKeyW(HKEY_CURRENT_USER, L"Software\\Valve\\Steam", &key) != ERROR_SUCCESS) {
         return false;
     }
-    if (RegQueryValueExW(key, L"SteamPath", NULL, &valtype, (LPBYTE)steam_path, &cbdata) != ERROR_SUCCESS) {
+    if (RegQueryValueExW(key, L"SteamPath", NULL, &valtype, (LPBYTE)steam_path, &cbdata) != ERROR_SUCCESS ||
+        (valtype != REG_SZ && valtype != REG_EXPAND_SZ) || cbdata < sizeof(wchar_t)) {
         RegCloseKey(key);
         return false;
     }
+    const size_t steam_path_capacity = sizeof(steam_path) / sizeof(steam_path[0]);
+    const size_t steam_path_length = cbdata / sizeof(wchar_t);
+    steam_path[steam_path_length < steam_path_capacity ? steam_path_length : steam_path_capacity - 1] = L'\0';
     RegCloseKey(key);
     _snwprintf(library_path, MAX_PATH, L"%ls\\steamapps\\libraryfolders.vdf", steam_path);
     library_path[MAX_PATH - 1] = L'\0';
@@ -34,10 +40,11 @@ bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
     if (library_folders == NULL) {
         return false;
     }
-    if (strcmp(library_folders->key, "libraryfolders") != 0 || library_folders->type != VDF_TYPE_ARRAY) {
+    if (library_folders->key == NULL || strcmp(library_folders->key, "libraryfolders") != 0 || library_folders->type != VDF_TYPE_ARRAY) {
         vdf_free_object(library_folders);
         return false;
     }
+    bool found = false;
     for (int i = (int)vdf_object_get_array_length(library_folders) - 1; i >= 0; i--) {
         char app_id_str[16];
         const struct vdf_object *sub = vdf_object_index_array(library_folders, i);
@@ -54,7 +61,7 @@ bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
         library_path[MAX_PATH - 1] = L'\0';
         struct vdf_object *acf = vdf_parse_file(library_path);
         if (acf == NULL) continue;
-        if (strcmp(acf->key, "AppState") != 0 || acf->type != VDF_TYPE_ARRAY) {
+        if (acf->key == NULL || strcmp(acf->key, "AppState") != 0 || acf->type != VDF_TYPE_ARRAY) {
             vdf_free_object(acf);
             continue;
         }
@@ -65,9 +72,10 @@ bool app_find_game_path(const uint32_t app_id, wchar_t *path) {
         }
         _snwprintf(path, MAX_PATH, L"%hs\\steamapps\\common\\%hs", vdf_object_get_string(sub2), vdf_object_get_string(sub3));
         path[MAX_PATH - 1] = L'\0';
+        found = path[0] != L'\0';
         vdf_free_object(acf);
         break;
     }
     vdf_free_object(library_folders);
-    return true;
+    return found;
 }
